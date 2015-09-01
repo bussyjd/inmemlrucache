@@ -14,17 +14,18 @@ import (
 type LRUCache struct {
 	size int
 	l    *list.List
+	// implement cache
 }
 
 type entry struct {
-	key   int
-	image []byte
+	key       int
+	imagepath string
 }
 
 func main() {
 	router := mux.NewRouter()
-	l := list.New()
-	l.Init()
+	//l := list.New()
+	//l.Init()
 	// Default index page
 	router.HandleFunc("/", Index)
 	// Get(Key) Return the value assisiated with a key if it exists Otherwise returns 404
@@ -42,6 +43,22 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
+// New Cache creation
+func New(size int) *LRUCache {
+	return &LRUCache{
+		size: size,
+		l:    list.New(),
+		// We build a hash table
+		////cache: make(map[])
+	}
+}
+
+func (lru *LRUCache) Add(key int, image string) {
+
+	//if lru.cache == nil {
+	//}
+}
+
 func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 }
@@ -49,7 +66,6 @@ func Index(w http.ResponseWriter, r *http.Request) {
 func GetCache(w http.ResponseWriter, r *http.Request) {
 	// promote the item
 	fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
-
 }
 
 func ResetCache(w http.ResponseWriter, r *http.Request) {
