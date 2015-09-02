@@ -36,7 +36,7 @@ func main() {
 	// Get(Key) Return the value assisiated with a key if it exists Otherwise returns 404
 	router.HandleFunc("/get/{id}", GetCache(lru))
 	//	// Delete an iem of the cache
-	//	router.HandleFunc("/del/{id}", DelCache)
+	router.HandleFunc("/del/{id}", DelCache)
 	//	// Reset() Delete all the items of the cache
 	//router.HandleFunc("/reset", ResetCache)
 	//	// Count() Returns the item count of the cache
@@ -101,6 +101,7 @@ func SetCache(lru *LRUCache) http.HandlerFunc {
 		if err != nil {
 			// invalid string
 		}
+		// Retireve the image data from POST
 		buff := []byte("Hi\n")
 		fmt.Fprintf(w, "Set Cache %v", key)
 		lru.Set(1, buff)
@@ -110,12 +111,20 @@ func SetCache(lru *LRUCache) http.HandlerFunc {
 // LRUSET
 func (lru *LRUCache) Set(key int, image []byte) {
 	// First we check if the LRU cache is not full
-	fmt.Println(lru.l)
-	lru.l.Len()
-	//lru.l.PushFront("imagename.jpg")
+	lru.l.PushFront("imagename.jpg")
+	fmt.Println(lru.l.Len())
 	//tmpfs.write(image, "imagename.jpg")
-	//if lru.cache == nil {
-	//}
+}
+
+// DEL
+func DelCache(lru *LRUCache) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.request) {
+		vars := mux.Vars(r)
+		key, err := strconv.Atoi(vars["id"])
+		if err != nil {
+			// invalid string
+		}
+	}
 }
 
 /*
