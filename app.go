@@ -34,7 +34,6 @@ func initcache(size int) *LRUCache {
 		size: size,
 		l:    list.New(),
 	}
-
 }
 
 func main() {
@@ -47,18 +46,34 @@ func main() {
 		buf, err := ioutil.ReadAll(mbreader)
 		if err != nil {
 			fmt.Println(err)
+			http.Error(w, err.Error(), 500)
 		}
-		SetCache(lru, buf)
-		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+		_, err = SetCache(lru, buf)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, err.Error(), 500)
+		}
 	})
+
 	// Get(Key) Return the value associated with a key if it exists Otherwise returns 404
 	router.HandleFunc("/get/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		key, err := strconv.Atoi(vars["id"])
 		if err != nil {
-			// invalid string
+			http.Error(w, err.Error(), 500)
 		}
-		GetCache(lru, key)
+		data, err := GetCache(lru, key)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, err.Error(), 500)
+		}
+		fmt.Println(strconv.Itoa(len(data)))
+		fmt.Println(data)
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		if _, err := w.Write(data); err != nil {
+			log.Println("unable to write image.")
+		}
 	})
 	// Delete an item of the cache
 	router.HandleFunc("/del/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -67,21 +82,31 @@ func main() {
 		if err != nil {
 			// invalid string
 		}
-		RmCache(lru, key)
+		_, err = RmCache(lru, key)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+		}
 	})
 	// Reset() Delete all the items of the cache
 	router.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
-		ResetCache(lru)
+		_, err := ResetCache(lru)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+		}
 	})
 	//	// Count() Returns the item count of the cache
 	router.HandleFunc("/count", func(w http.ResponseWriter, r *http.Request) {
-		ItemCount(lru)
+		EntryCount(lru)
 	})
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
+// -- ERROR HANDLING --
+
 // SETCACHE
-func SetCache(lru *LRUCache, buf []byte) {
+// Add a new entry in the lru cache and write the picture in
+// tmpfs
+func SetCache(lru *LRUCache, buf []byte) (bool, error) {
 	// TODO Avoid the file to be zero (check r.Body size)
 	// TODO Avoid the file to be over 1Mb
 	//imgrdsize, err := mbreader.Read(buf)
@@ -90,6 +115,9 @@ func SetCache(lru *LRUCache, buf []byte) {
 	//	fmt.Fprintf(w, "Image size exeeded %v \n", imgrdsize)
 	//	return
 	//}
+	if len(buf) == 0 {
+		return false, fmt.Errorf("Image size is empty")
+	}
 	newfilename := uuid.New() + ".jpg"
 	lrulen := lru.l.Len()
 	switch {
@@ -102,6 +130,7 @@ func SetCache(lru *LRUCache, buf []byte) {
 		lru.SetLru(newfilename)
 	}
 	TmpfsWrite(buf, newfilename)
+	return true, nil
 }
 
 // LRUSET
@@ -115,12 +144,25 @@ func (lru *LRUCache) SetLru(newfilename string) {
 }
 
 // GET
-func GetCache(lru *LRUCache, key int) {
+func GetCache(lru *LRUCache, key int) ([]byte, error) {
 	if key > lru.size {
-		fmt.Printf("Cache is limited to 10 entries")
+		fmt.Printf("LRU Cache is limited to 10 entries")
+		return nil, fmt.Errorf("LRU Cache is limited to 10 entries")
+	}
+	if lru.l.Len() == 0 {
+		return nil, fmt.Errorf("LRU is empty")
 	}
 	readkeyfile := lru.GetLru(key)
-	TmpfsRead(readkeyfile)
+	if len(readkeyfile) == 0 {
+		fmt.Printf("Empty LRU entry")
+		return nil, fmt.Errorf("Empty LRU entry")
+	}
+	data, err := TmpfsRead(readkeyfile)
+	if err != nil {
+		fmt.Printf("Empty?")
+		return nil, err
+	}
+	return data, err
 }
 
 // LRUGET
@@ -141,15 +183,27 @@ func (lru *LRUCache) GetLru(key int) string {
 			fmt.Printf("Moving %v to Front", key)
 			lru.l.MoveToFront(e)
 			getfile = fmt.Sprintf("%v", e.Value)
+			return getfile
 		}
 	}
-	return getfile
+	return ""
 }
 
 // DEL
-func RmCache(lru *LRUCache, key int) {
-	rmfilename := lru.RmLru(key)
-	TmpfsRm(rmfilename)
+func RmCache(lru *LRUCache, key int) (bool, error) {
+	if key > lru.size {
+		fmt.Printf("LRU Cache is limited to 10 entries")
+		return false, fmt.Errorf("LRU Cache is limited to 10 entries")
+	}
+	if lru.l.Len() == 0 {
+		return true, fmt.Errorf("LRU is empty")
+	}
+	filename := lru.RmLru(key)
+	if filename == "" {
+		return true, fmt.Errorf("LRU entry non existing")
+	}
+	rm, err := TmpfsRm(filename)
+	return rm, err
 }
 
 // LRUDEL
@@ -161,38 +215,31 @@ func (lru *LRUCache) RmLru(key int) string {
 		if key == i {
 			imgpwd = fmt.Sprintf("%v", e.Value)
 			fmt.Printf("Image path to delete: %s\n", imgpwd)
-
 			lru.l.Remove(e)
-			break
+			return imgpwd
 		}
 	}
-	return imgpwd
+	return ""
 }
-
-/*
-func (lru *LRUCache) Read(key int) e {
-	i := 0
-	for e := lru.l.Front(); e != nil; e = e.Next() {
-	if key == i {
-	}
-}
-*/
 
 // COUNT
-func ItemCount(lru *LRUCache) {
+func EntryCount(lru *LRUCache) int {
+	// For debugging
 	i := 0
 	for e := lru.l.Front(); e != nil; e = e.Next() {
 		i++
 		fmt.Printf("Key:  %v\n", i)
 		fmt.Printf("Value:  %v\n", e.Value)
 	}
+	return lru.l.Len()
 }
 
 // RESET
-func ResetCache(lru *LRUCache) {
+func ResetCache(lru *LRUCache) (bool, error) {
 	lru.l.Init()
-	TmpfsClear()
+	rm, err := TmpfsClear()
 	fmt.Printf("Cache flushed")
+	return rm, err
 }
 
 func Index(w http.ResponseWriter, r *http.Request) {

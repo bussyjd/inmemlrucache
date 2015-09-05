@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -41,38 +42,34 @@ func TmpfsWrite(buf []byte, filename string) {
 }
 
 // TODO TMPFS READ
-func TmpfsRead(filename string) []byte {
-	var a []byte
-	fmt.Printf("READ")
-	return a
+func TmpfsRead(filename string) ([]byte, error) {
+	data, err := ioutil.ReadFile("/tmp/lru/" + filename)
+	if err != nil {
+		panic(err)
+	}
+	return data, err
 }
 
 // Remove specified file in the FS
-func TmpfsRm(filename string) {
+func TmpfsRm(filename string) (bool, error) {
 	fmt.Printf("Filename to delete: %s\n", filename)
 	mount := exec.Command("rm", "-rf", "/tmp/lru/"+filename)
 	errrm := mount.Start()
 	if errrm != nil {
 		panic(errrm)
 	}
-
+	return true, errrm
 }
 
 //Clears the tmpfs FS
-func TmpfsClear() {
-	//var c = "\\" + ";"
-	//fmt.Printf(c)
-	//rmrf := exec.Command("find", "/tmp/lru", "-type", "f", "-exec", "rm", "-f", "{}", c)
-	//errrm := rmrf.Start()
-	//if errrm != nil {
-	//	panic(errrm)
-	delErr := os.RemoveAll("/tmp/lru")
-	if delErr != nil {
-		fmt.Println("Can't delete: ")
-	} else {
-		fmt.Println("Deleted")
+func TmpfsClear() (bool, error) {
+	out, err := exec.Command("/bin/sh", "-c", "rm -rf /tmp/lru/*").Output()
+	if err != nil {
+		panic(err)
+		//log.Fatal(err)
+		fmt.Printf(" %s\n", out)
 	}
-	TmpfsInit()
+	return true, err
 }
 
 func TmpfsDestroy() {
@@ -87,5 +84,4 @@ func TmpfsDestroy() {
 	if errumount != nil {
 		log.Fatal(errumount)
 	}
-
 }
