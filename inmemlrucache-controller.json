@@ -1,0 +1,23 @@
+{
+   "kind": "Service",
+   "apiVersion": "v1beta3",
+   "metadata": {
+      "name": "inmemlrucache",
+      "labels": {
+         "name": "inmemlrucache"
+      }
+   },
+   "spec":{
+      "createExternalLoadBalancer": true,
+      "ports": [
+         {
+           "port": 8080 ,
+           "targetPort": "http-server",
+           "protocol": "TCP"
+         }
+      ],
+      "selector":{
+         "name":"inmemlrucache"
+      }
+   }
+}
