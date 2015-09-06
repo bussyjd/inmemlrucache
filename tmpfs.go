@@ -17,12 +17,11 @@ func TmpfsInit() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//log.Printf("Command finished with error: %v", err)
-	//mount := exec.Command("mount", "-t", "tmpfs", "-o", "size=20m", "tmpfs", "/tmp/lru/")
-	//errmount := mount.Start()
-	//if errmount != nil {
-	//	log.Fatal(errmount)
-	//}
+	mount := exec.Command("mount", "-t", "tmpfs", "-o", "size=20m", "tmpfs", "/tmp/lru/")
+	errmount := mount.Start()
+	if errmount != nil {
+		log.Fatal(errmount)
+	}
 	fmt.Printf("Done\n")
 }
 
