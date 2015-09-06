@@ -1,4 +1,4 @@
-box: wercker:golang
+box: wercker/golang
 build:
     steps:
     # Test the project
