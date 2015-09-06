@@ -24,9 +24,13 @@ func TestSet(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
 	buf := []byte{'i', 'm', 'a', 'g', 'e'}
-	set, _ := SetCache(lru, buf)
-	if set != true {
-		t.Errorf("Success  expected: %d", set)
+	fmt.Println(len(buf))
+	id, err := SetCache(lru, buf)
+	if !(len(id) > 0) {
+		t.Errorf("Expected an Id of the data entry: %d", id)
+	}
+	if err != nil {
+		t.Errorf("Expected Set file to run with no error: %d", err)
 	}
 	data, err := ioutil.ReadFile("/tmp/lru/" + fmt.Sprintf("%v", lru.l.Front().Value))
 	if err != nil {
@@ -41,33 +45,44 @@ func TestSetEmptyLru(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
 	var buf []byte
-	set, _ := SetCache(lru, buf)
-	if set == true {
-		t.Errorf("Success no expected: %d", set)
+	id, err := SetCache(lru, buf)
+	if len(id) > 0 {
+		t.Errorf("NOT Expected and Id of the data entry: %d", id)
+	}
+	if err == nil {
+		t.Errorf("Expected Set file to run with an error: %d", err)
 	}
 }
 
 func TestSetUntilFull(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	var set bool
+	var id string
+	var err error
 	for i := 0; i <= (lrusizelimit + 1); i++ {
-		set, _ = SetCache(lru, []byte{'i'})
+		id, err = SetCache(lru, []byte{'i', 'i', 'i', 'i', 'i'})
+		if err != nil {
+			t.Errorf("Expected Set file to run with no error: %d", err)
+		}
 	}
-	if set != true {
-		t.Errorf("Success expected: %d", set)
+	if !(len(id) > 0) {
+		t.Errorf("Expected an Id of the data entry: %d", id)
 	}
 }
 
 func TestSetUntilFullCausesLruDemotion(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	var set bool
+	var id string
+	var err error
 	for i := 0; i <= (lrusizelimit + 1); i++ {
-		set, _ = SetCache(lru, []byte{'i'})
+		id, err = SetCache(lru, []byte{'i', 'i', 'i', 'i', 'i'})
+		if err != nil {
+			t.Errorf("Expected Set file to run with no error: %d", err)
+		}
 	}
-	if set != true {
-		t.Errorf("Success expected: %d", set)
+	if !(len(id) > 0) {
+		t.Errorf("Expected an Id of the data entry: %d", id)
 	}
 	if lru.l.Back().Value == "9" {
 		t.Errorf("Back of the lru data sopposed to be 9: %d", lru.l.Back().Value)
@@ -81,39 +96,66 @@ func TestSetUntilFullCausesLruDemotion(t *testing.T) {
 func TestGet(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	buf := []byte{'7', '8', '3', '7'}
-	SetCache(lru, buf)
-	get, _ := GetCache(lru, 1)
-	if get == nil {
-		t.Errorf("Expected set data to be same as get data %d != %d", get, buf)
+	fdest, _ := os.Create(lrudir + "/test5")
+	buf := []byte{'1', '3', '3', '7'}
+	fdest.Write(buf)
+	fdest.Close()
+	lru.l.PushFront("test5")
+	get, err := GetCache(lru, "test5")
+	if err != nil {
+		t.Errorf("Expected Set file to run with no error: %d", err)
+	}
+	if !(len(get) > 0) {
+		t.Errorf("Expected Get to return some data")
+	}
+	if !bytes.Equal(get, buf) {
+		t.Errorf("Expected Get data to be the same in tmpfs %d != %d", get, buf)
 	}
 }
 
 func TestGetEmpty(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	_, err := GetCache(lru, 1)
+	get, err := GetCache(lru, "test5")
 	if err == nil {
 		t.Errorf("Expected emtpy entry error %d", err)
+	}
+	if len(get) != 0 {
+		t.Errorf("Expected empty data %d", err)
 	}
 }
 
 func TestGetNonExisting(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	SetCache(lru, []byte("1"))
-	_, err := GetCache(lru, 2)
+	fdest, _ := os.Create(lrudir + "/testE")
+	buf := []byte{'i', 'm', 'a', 'g', 'e'}
+	fdest.Write(buf)
+	fdest.Close()
+	lru.l.PushFront("testE")
+	get, err := GetCache(lru, "getno")
 	if err == nil {
 		t.Errorf("Expected Non existing error  %d", err)
 	}
+	if len(get) != 0 {
+		t.Errorf("Expected empty data %d", err)
+	}
 }
 
-func TestGetOufofBounds(t *testing.T) {
+func TestGetWrongIdSize(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	_, err := GetCache(lru, 11)
+	fdest, _ := os.Create(lrudir + "/testE")
+	buf := []byte{'i', 'm', 'a', 'g', 'e'}
+	fdest.Write(buf)
+	fdest.Close()
+	lru.l.PushFront("testE")
+	get, err := GetCache(lru, "unneccesarylongid")
 	if err == nil {
 		t.Errorf("Expected Out of  %d", err)
+	}
+	if len(get) != 0 {
+		t.Errorf("Expected empty data %d", err)
 	}
 }
 
@@ -123,31 +165,28 @@ func TestGetPromotion(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
 	for i := 0; i <= (lrusizelimit - 6); i++ {
-		SetCache(lru, []byte{'i'})
+		SetCache(lru, []byte{'i', 'i', 'i', 'i', 'i'})
 	}
-	oldnew, _ := GetCache(lru, 5)
-	newone, _ := GetCache(lru, 1)
+	oldnew, _ := GetCache(lru, "test5")
+	newone, _ := GetCache(lru, "test1")
 	if !bytes.Equal(oldnew, newone) {
 		t.Errorf("Expected accessed old entry to be promoted %d != %d", oldnew, newone)
 	}
 }
 
 // DELETE
-// We look into the tmpfs for the deleted entry file
 func TestRm(t *testing.T) {
-	//defer CleanTmpfs()
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	SetCache(lru, []byte("deleteme"))
-	filename := fmt.Sprintf("%d", lru.l.Front().Value)
-	deleted, err := RmCache(lru, 1)
+	id, _ := SetCache(lru, []byte("delet"))
+	deleted, err := RmCache(lru, id)
 	if err != nil {
 		t.Errorf("Expected No Error on Delete: %d", err)
 	}
 	if deleted == false {
 		t.Errorf("Expected Rmcache to return true: %d", deleted)
 	}
-	if _, err := os.Stat("/tmp/lru" + filename); err == nil {
+	if _, err := os.Stat("/tmp/lru/delet"); err == nil {
 		t.Errorf("Expected deleted entry's file to be deleted too")
 	}
 }
@@ -155,7 +194,7 @@ func TestRm(t *testing.T) {
 func TestRmEmpty(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	rm, err := RmCache(lru, 1)
+	rm, err := RmCache(lru, "11111")
 	if rm != true {
 		t.Errorf("Expected Deletion on empty LRU: %d", rm)
 	}
@@ -168,7 +207,7 @@ func TestRmNonExisting(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
 	SetCache(lru, []byte("1"))
-	rm, err := RmCache(lru, 2)
+	rm, err := RmCache(lru, "11111")
 	if rm != true {
 		t.Errorf("Expected Deletion on non existing entry: %d", rm)
 	}
@@ -183,29 +222,32 @@ func TestRmCausesPreviousPromotion(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
 	for i := 0; i <= (lrusizelimit - 6); i++ {
-		SetCache(lru, []byte{'i'})
+		SetCache(lru, []byte{'i', 'i', 'i', 'i', 'i'})
 	}
-	tobepromoted, _ := GetCache(lru, 2)
-	RmCache(lru, 1)
-	promoted, _ := GetCache(lru, 1)
+	tobepromoted, _ := GetCache(lru, "11111")
+	RmCache(lru, "11111")
+	promoted, _ := GetCache(lru, "22222")
 	if !bytes.Equal(promoted, tobepromoted) {
 		t.Errorf("Expected previous entry of the deleted to be promoted: %d, %d", tobepromoted, promoted)
 	}
 }
 
-func TestRmOutOfBounds(t *testing.T) {
+func TestRmWrongIdSize(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	_, err := RmCache(lru, lrusizelimit+1)
+	rm, err := RmCache(lru, "unnecessarylongid")
 	if err == nil {
 		t.Errorf("Expected Ouf of bounds error")
+	}
+	if rm != true {
+		t.Errorf("Expected true on RmCache")
 	}
 }
 
 func TestCount(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	SetCache(lru, []byte("1"))
+	SetCache(lru, []byte("11111"))
 	count := EntryCount(lru)
 	if count >= 0 {
 	} else {
@@ -227,7 +269,7 @@ func TestReset(t *testing.T) {
 	//reset, err := ResetCache(lru)
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	SetCache(lru, []byte("1"))
+	SetCache(lru, []byte("11111"))
 	reset, err := ResetCache(lru)
 	if reset != true {
 		t.Errorf("Expected ResetCache to return true %d", reset)

@@ -12,24 +12,30 @@ import (
 )
 
 func SetHandler(w http.ResponseWriter, r *http.Request) {
+	var id string
 	mbreader := io.LimitReader(r.Body, imgfilesizelimit)
 	buf, err := ioutil.ReadAll(mbreader)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, err.Error(), 500)
 	}
-	_, err = SetCache(lru, buf)
+	if len(buf) == 0 {
+		http.Error(w, "Image size is empty\n", 404)
+	} else if len(buf) != idsize {
+		http.Error(w, "Invalid id\n", 404)
+	}
+	id, err = SetCache(lru, buf)
 	if err != nil {
-		fmt.Println(err)
 		http.Error(w, err.Error(), 500)
 	}
+	fmt.Fprintf(w, "%s", id)
 }
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	key, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		http.Error(w, err.Error(), 500)
+	key := vars["id"]
+	if len(key) != idsize {
+		http.Error(w, "Invalid id\n", 404)
 	}
 	data, err := GetCache(lru, key)
 	if err != nil {
@@ -45,14 +51,18 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 
 func DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	key, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		// invalid string
+	key := vars["id"]
+	if len(key) != idsize {
+		http.Error(w, "Invalid id\n", 404)
 	}
-	_, err = RmCache(lru, key)
+	rmcache, err := RmCache(lru, key)
 	if err != nil {
 		http.Error(w, err.Error(), 404)
 	}
+	if rmcache == true {
+		http.Error(w, err.Error(), 500)
+	}
+
 }
 
 func ResetHandler(w http.ResponseWriter, r *http.Request) {

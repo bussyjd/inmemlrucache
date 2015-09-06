@@ -14,11 +14,12 @@ Tested on Ubuntu Linux.
 
 ## API spec
 
-### /SET
+### /SET/{id}
 _POST_
 
 Stores provided image on the top of the LRU cache.
-The image data is provided in the body of the http request
+The image data is provided by the clientin the body of the http request
+The server response is the UUID of that entry
 
 HTTP 200 on success
 

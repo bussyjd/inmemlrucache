@@ -17,6 +17,7 @@ import (
 
 const imgfilesizelimit = 1000000
 const lrusizelimit = 10
+const idsize = 5
 
 type LRUCache struct {
 	size int
@@ -37,9 +38,9 @@ func initcache(size int) *LRUCache {
 func main() {
 	lru = initcache(lrusizelimit)
 	router := mux.NewRouter()
-	// Set(Key,Value) Set a new item in the cache
+	// Set(Value) Set a new item in the cache, Returns id
 	router.HandleFunc("/set", SetHandler)
-	// Get(Key) Return the value associated with a key if it exists Otherwise returns 404
+	// Get(id) Return the value associated with an id if it exists Otherwise returns 404
 	router.HandleFunc("/get/{id}", GetHandler)
 	// Delete an item of the cache
 	router.HandleFunc("/del/{id}", DeleteHandler)
@@ -55,31 +56,24 @@ func main() {
 // SETCACHE
 // Add a new entry in the lru cache and write the picture in
 // tmpfs
-func SetCache(lru *LRUCache, buf []byte) (bool, error) {
-	// TODO Avoid the file to be zero (check r.Body size)
-	// TODO Avoid the file to be over 1Mb
-	//imgrdsize, err := mbreader.Read(buf)
-	//if err == io.EOF {
-	//	fmt.Println(err)
-	//	fmt.Fprintf(w, "Image size exeeded %v \n", imgrdsize)
-	//	return
-	//}
-	if len(buf) == 0 {
-		return false, fmt.Errorf("Image size is empty")
-	}
-	newfilename := randStr(lrusizelimit)
+func SetCache(lru *LRUCache, buf []byte) (string, error) {
+	newfilename := randStr(idsize)
 	lrulen := lru.l.Len()
+	if len(buf) == 0 {
+		return "", fmt.Errorf("Image size is empty\n")
+	} else if len(buf) != idsize {
+		return "", fmt.Errorf("Invalid id\n")
+	}
 	switch {
 	case lrulen == lru.size:
 		oldest := lru.l.Back()
-		// tmpfsDel(oldest.value)
 		lru.l.Remove(oldest)
 		lru.SetLru(newfilename)
 	case lrulen < lru.size:
 		lru.SetLru(newfilename)
 	}
 	TmpfsWrite(buf, newfilename)
-	return true, nil
+	return newfilename, nil
 }
 
 // LRUSET
@@ -93,74 +87,69 @@ func (lru *LRUCache) SetLru(newfilename string) {
 }
 
 // GET
-func GetCache(lru *LRUCache, key int) ([]byte, error) {
-	if key > lru.size {
-		fmt.Printf("LRU Cache is limited to 10 entries\n")
-		return nil, fmt.Errorf("LRU Cache is limited to 10 entries\n")
+func GetCache(lru *LRUCache, key string) ([]byte, error) {
+	if len(key) == 0 {
+		return nil, fmt.Errorf("Image size is empty\n")
+	} else if len(key) != idsize {
+		return nil, fmt.Errorf("Invalid id\n")
 	}
 	if lru.l.Len() == 0 {
 		return nil, fmt.Errorf("LRU is empty\n")
 	}
-	readkeyfile := lru.GetLru(key)
-	if len(readkeyfile) == 0 {
-		fmt.Printf("Empty LRU entry\n")
+	validid := lru.GetLru(key)
+	if validid == false {
 		return nil, fmt.Errorf("Empty LRU entry\n")
 	}
-	data, err := TmpfsRead(readkeyfile)
+	data, err := TmpfsRead(key)
 	if err != nil {
 		return nil, err
 	}
 	return data, err
 }
 
-// LRUGET
-func (lru *LRUCache) GetLru(key int) string {
+// LRUGET Check for the id in the double linked list and promotes it on success
+func (lru *LRUCache) GetLru(key string) bool {
 	i := 0
-	var getfile string
 	for e := lru.l.Front(); e != nil; e = e.Next() {
 		i++
-		if key == lru.size {
-			break
-		}
-		if key == i {
+		if e.Value == key {
 			lru.l.MoveToFront(e)
-			getfile = fmt.Sprintf("%v", e.Value)
-			return getfile
+			return true
 		}
 	}
-	return ""
+	return false
 }
 
 // DEL
-func RmCache(lru *LRUCache, key int) (bool, error) {
-	if key > lru.size {
-		fmt.Printf("LRU Cache is limited to 10 entries\n")
-		return false, fmt.Errorf("LRU Cache is limited to 10 entries\n")
-	}
+func RmCache(lru *LRUCache, key string) (bool, error) {
 	if lru.l.Len() == 0 {
 		return true, fmt.Errorf("LRU is empty\n")
 	}
-	filename := lru.RmLru(key)
-	if filename == "" {
-		return true, fmt.Errorf("LRU entry non existing\n")
+	if len(key) == 0 {
+		return false, fmt.Errorf("Image size is empty\n")
+	} else if len(key) != idsize {
+		return false, fmt.Errorf("Invalid id\n")
 	}
-	rm, err := TmpfsRm(filename)
+	filename := lru.RmLru(key)
+	if filename == false {
+		fmt.Println(filename)
+		return filename, fmt.Errorf("LRU entry non existing\n")
+	}
+	rm, err := TmpfsRm(key)
 	return rm, err
 }
 
 // LRUDEL
-func (lru *LRUCache) RmLru(key int) string {
+func (lru *LRUCache) RmLru(key string) bool {
 	i := 0
-	var imgpwd string
 	for e := lru.l.Front(); e != nil; e = e.Next() {
 		i++
-		if key == i {
-			imgpwd = fmt.Sprintf("%v", e.Value)
+		if key == e.Value {
 			lru.l.Remove(e)
-			return imgpwd
+			return true
 		}
 	}
-	return ""
+	return false
 }
 
 // COUNT
