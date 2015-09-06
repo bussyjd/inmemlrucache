@@ -45,8 +45,21 @@ Returns the number of entries stored in the cache.
 HTTP 200 on success
 
 ## How to run
+
+### Docker
+```
+docker run --rm -v $PWD:/app -w /app treeder/go remote https://github.com/bussyjd/inmemlrucache.git
+```
+### Local env
 ```
 go run app.go tmpfs.go handlers.go
+```
+### Development testing
+```
+cd inmemlrucache
+docker run --rm -v $PWD:/app -w /app treeder/go vendor
+docker run --rm -v $PWD:/app -w /app treeder/go build
+docker run --rm -v $PWD:/app -w /app -p 8080:8080 iron/base ./app
 ```
 
 ## Testing
