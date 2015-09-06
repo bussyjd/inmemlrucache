@@ -61,8 +61,6 @@ func SetCache(lru *LRUCache, buf []byte) (string, error) {
 	lrulen := lru.l.Len()
 	if len(buf) == 0 {
 		return "", fmt.Errorf("Image size is empty\n")
-	} else if len(buf) != idsize {
-		return "", fmt.Errorf("Invalid id\n")
 	}
 	switch {
 	case lrulen == lru.size:
@@ -132,7 +130,7 @@ func RmCache(lru *LRUCache, key string) (bool, error) {
 	}
 	filename := lru.RmLru(key)
 	if filename == false {
-		return filename, fmt.Errorf("LRU entry non existing\n")
+		return true, fmt.Errorf("LRU entry non existing\n")
 	}
 	rm, err := TmpfsRm(key)
 	return rm, err

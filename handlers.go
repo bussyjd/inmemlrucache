@@ -21,8 +21,6 @@ func SetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(buf) == 0 {
 		http.Error(w, "Image size is empty\n", 404)
-	} else if len(buf) != idsize {
-		http.Error(w, "Invalid id\n", 404)
 	}
 	id, err = SetCache(lru, buf)
 	if err != nil {

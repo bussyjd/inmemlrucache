@@ -205,14 +205,15 @@ func TestRmEmpty(t *testing.T) {
 func TestRmNonExisting(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
-	SetCache(lru, []byte("1"))
-	rm, err := RmCache(lru, "11111")
-	if rm != true {
-		t.Errorf("Expected Deletion on non existing entry: %d", rm)
-	}
+	SetCache(lru, []byte("11111"))
+	rm, err := RmCache(lru, "22222")
 	if err == nil {
 		t.Errorf("Expected Error on non existing entry deletion: %d", err)
 	}
+	if rm != true {
+		t.Errorf("Expected True on non existing entry: %d", rm)
+	}
+
 }
 
 // We remove an entry id and compare with the same entry id
