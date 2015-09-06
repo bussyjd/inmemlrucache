@@ -1,8 +1,8 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"container/list"
+	"crypto/rand"
 	"fmt"
 	"log"
 	"net/http"
@@ -67,7 +67,7 @@ func SetCache(lru *LRUCache, buf []byte) (bool, error) {
 	if len(buf) == 0 {
 		return false, fmt.Errorf("Image size is empty")
 	}
-	newfilename := uuid.New() + ".jpg"
+	newfilename := randStr(5) + ".jpg"
 	lrulen := lru.l.Len()
 	switch {
 	case lrulen == lru.size:
@@ -134,7 +134,7 @@ func (lru *LRUCache) GetLru(key int) string {
 // DEL
 func RmCache(lru *LRUCache, key int) (bool, error) {
 	if key > lru.size {
-		fmt.Printf("LRU Cache is limited to 10 entriesi\n")
+		fmt.Printf("LRU Cache is limited to 10 entries\n")
 		return false, fmt.Errorf("LRU Cache is limited to 10 entries\n")
 	}
 	if lru.l.Len() == 0 {
@@ -184,4 +184,15 @@ func ResetCache(lru *LRUCache) (bool, error) {
 	rm, err := TmpfsClear()
 	fmt.Printf("FileSystem flushed\n")
 	return rm, err
+}
+
+//UUID GENERATION
+func randStr(strSize int) string {
+	dictionary := "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	var bytes = make([]byte, strSize)
+	rand.Read(bytes)
+	for k, v := range bytes {
+		bytes[k] = dictionary[v%byte(len(dictionary))]
+	}
+	return string(bytes)
 }
