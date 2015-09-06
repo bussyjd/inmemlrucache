@@ -29,16 +29,15 @@ func TmpfsInit() {
 func TmpfsWrite(buf []byte, filename string) {
 	fdest, err := os.Create(lrudir + "/" + filename)
 	if err != nil {
-		fmt.Printf("Unable to create the file for writing. Check your write access privilege")
+		fmt.Printf("Unable to create the file for writing. Check your write access privilege\n")
 		panic(err)
 	}
 	defer fdest.Close()
 	// write in the file
-	wrote, err := fdest.Write(buf)
+	_, err = fdest.Write(buf)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("wrote %d bytes\n", wrote)
 }
 
 // TODO TMPFS READ
@@ -52,7 +51,6 @@ func TmpfsRead(filename string) ([]byte, error) {
 
 // Remove specified file in the FS
 func TmpfsRm(filename string) (bool, error) {
-	fmt.Printf("Filename to delete: %s\n", filename)
 	mount := exec.Command("rm", "-rf", "/tmp/lru/"+filename)
 	errrm := mount.Start()
 	if errrm != nil {
@@ -78,7 +76,7 @@ func TmpfsDestroy() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Command finished with error: %v", err)
+	log.Printf("Command finished with error: %v\n", err)
 	umount := exec.Command("umount", lrudir)
 	errumount := umount.Start()
 	if errumount != nil {

@@ -4,12 +4,8 @@ import (
 	"code.google.com/p/go-uuid/uuid"
 	"container/list"
 	"fmt"
-	"html"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -27,6 +23,8 @@ type LRUCache struct {
 	l    *list.List
 }
 
+var lru *LRUCache
+
 // New Cache creation
 func initcache(size int) *LRUCache {
 	TmpfsInit()
@@ -37,67 +35,18 @@ func initcache(size int) *LRUCache {
 }
 
 func main() {
-	lru := initcache(lrusizelimit)
+	lru = initcache(lrusizelimit)
 	router := mux.NewRouter()
-	router.HandleFunc("/", Index)
 	// Set(Key,Value) Set a new item in the cache
-	router.HandleFunc("/set", func(w http.ResponseWriter, r *http.Request) {
-		mbreader := io.LimitReader(r.Body, imgfilesizelimit)
-		buf, err := ioutil.ReadAll(mbreader)
-		if err != nil {
-			fmt.Println(err)
-			http.Error(w, err.Error(), 500)
-		}
-		_, err = SetCache(lru, buf)
-		if err != nil {
-			fmt.Println(err)
-			http.Error(w, err.Error(), 500)
-		}
-	})
-
+	router.HandleFunc("/set", SetHandler)
 	// Get(Key) Return the value associated with a key if it exists Otherwise returns 404
-	router.HandleFunc("/get/{id}", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		key, err := strconv.Atoi(vars["id"])
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-		}
-		data, err := GetCache(lru, key)
-		if err != nil {
-			fmt.Println(err)
-			http.Error(w, err.Error(), 500)
-		}
-		fmt.Println(strconv.Itoa(len(data)))
-		fmt.Println(data)
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-		if _, err := w.Write(data); err != nil {
-			log.Println("unable to write image.")
-		}
-	})
+	router.HandleFunc("/get/{id}", GetHandler)
 	// Delete an item of the cache
-	router.HandleFunc("/del/{id}", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		key, err := strconv.Atoi(vars["id"])
-		if err != nil {
-			// invalid string
-		}
-		_, err = RmCache(lru, key)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-		}
-	})
+	router.HandleFunc("/del/{id}", DeleteHandler)
 	// Reset() Delete all the items of the cache
-	router.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
-		_, err := ResetCache(lru)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-		}
-	})
+	router.HandleFunc("/reset", ResetHandler)
 	//	// Count() Returns the item count of the cache
-	router.HandleFunc("/count", func(w http.ResponseWriter, r *http.Request) {
-		EntryCount(lru)
-	})
+	router.HandleFunc("/count", CountHandler)
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
@@ -146,20 +95,19 @@ func (lru *LRUCache) SetLru(newfilename string) {
 // GET
 func GetCache(lru *LRUCache, key int) ([]byte, error) {
 	if key > lru.size {
-		fmt.Printf("LRU Cache is limited to 10 entries")
-		return nil, fmt.Errorf("LRU Cache is limited to 10 entries")
+		fmt.Printf("LRU Cache is limited to 10 entries\n")
+		return nil, fmt.Errorf("LRU Cache is limited to 10 entries\n")
 	}
 	if lru.l.Len() == 0 {
-		return nil, fmt.Errorf("LRU is empty")
+		return nil, fmt.Errorf("LRU is empty\n")
 	}
 	readkeyfile := lru.GetLru(key)
 	if len(readkeyfile) == 0 {
-		fmt.Printf("Empty LRU entry")
-		return nil, fmt.Errorf("Empty LRU entry")
+		fmt.Printf("Empty LRU entry\n")
+		return nil, fmt.Errorf("Empty LRU entry\n")
 	}
 	data, err := TmpfsRead(readkeyfile)
 	if err != nil {
-		fmt.Printf("Empty?")
 		return nil, err
 	}
 	return data, err
@@ -175,12 +123,6 @@ func (lru *LRUCache) GetLru(key int) string {
 			break
 		}
 		if key == i {
-			// Return the image
-			// TODO tmpfsRead
-			fmt.Printf("Image: %v\n", e.Value)
-			fmt.Printf("Key: %v\n", key)
-			// Promote the accessed entry
-			fmt.Printf("Moving %v to Front", key)
 			lru.l.MoveToFront(e)
 			getfile = fmt.Sprintf("%v", e.Value)
 			return getfile
@@ -192,15 +134,15 @@ func (lru *LRUCache) GetLru(key int) string {
 // DEL
 func RmCache(lru *LRUCache, key int) (bool, error) {
 	if key > lru.size {
-		fmt.Printf("LRU Cache is limited to 10 entries")
-		return false, fmt.Errorf("LRU Cache is limited to 10 entries")
+		fmt.Printf("LRU Cache is limited to 10 entriesi\n")
+		return false, fmt.Errorf("LRU Cache is limited to 10 entries\n")
 	}
 	if lru.l.Len() == 0 {
-		return true, fmt.Errorf("LRU is empty")
+		return true, fmt.Errorf("LRU is empty\n")
 	}
 	filename := lru.RmLru(key)
 	if filename == "" {
-		return true, fmt.Errorf("LRU entry non existing")
+		return true, fmt.Errorf("LRU entry non existing\n")
 	}
 	rm, err := TmpfsRm(filename)
 	return rm, err
@@ -214,7 +156,6 @@ func (lru *LRUCache) RmLru(key int) string {
 		i++
 		if key == i {
 			imgpwd = fmt.Sprintf("%v", e.Value)
-			fmt.Printf("Image path to delete: %s\n", imgpwd)
 			lru.l.Remove(e)
 			return imgpwd
 		}
@@ -224,24 +165,23 @@ func (lru *LRUCache) RmLru(key int) string {
 
 // COUNT
 func EntryCount(lru *LRUCache) int {
-	// For debugging
+	return lru.l.Len()
+}
+
+// For debugging
+func DescribeLRU(lru *LRUCache) {
 	i := 0
 	for e := lru.l.Front(); e != nil; e = e.Next() {
 		i++
 		fmt.Printf("Key:  %v\n", i)
 		fmt.Printf("Value:  %v\n", e.Value)
 	}
-	return lru.l.Len()
 }
 
 // RESET
 func ResetCache(lru *LRUCache) (bool, error) {
 	lru.l.Init()
 	rm, err := TmpfsClear()
-	fmt.Printf("Cache flushed")
+	fmt.Printf("FileSystem flushed\n")
 	return rm, err
-}
-
-func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 }

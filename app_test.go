@@ -3,13 +3,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/Exec"
 	"testing"
-)
-
-var (
-	lru *LRUCache
 )
 
 func init() {
@@ -24,17 +21,25 @@ func init() {
 // We write data in the LRU and compare it to the new file in
 // the tmpfs partition
 func TestSet(t *testing.T) {
-	// TODO Compare with data in the FS
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	buf := []byte{'i', 'm', 'a', 'g', 'e'}
 	set, _ := SetCache(lru, buf)
 	if set != true {
 		t.Errorf("Success  expected: %d", set)
 	}
+	data, err := ioutil.ReadFile("/tmp/lru/" + fmt.Sprintf("%v", lru.l.Front().Value))
+	if err != nil {
+		t.Errorf("Expected Set file to be Readable in tpmfs: %d", err)
+	}
+	if !bytes.Equal(data, buf) {
+		t.Errorf("Expected Set data to be the same in tmpfs %d != %d", data, buf)
+	}
 }
 
 func TestSetEmptyLru(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	var buf []byte
 	set, _ := SetCache(lru, buf)
 	if set == true {
@@ -44,10 +49,9 @@ func TestSetEmptyLru(t *testing.T) {
 
 func TestSetUntilFull(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	var set bool
 	for i := 0; i <= (lrusizelimit + 1); i++ {
-		fmt.Println(i)
-		//si := strconv.Itoa(i)
 		set, _ = SetCache(lru, []byte{'i'})
 	}
 	if set != true {
@@ -57,6 +61,7 @@ func TestSetUntilFull(t *testing.T) {
 
 func TestSetUntilFullCausesLruDemotion(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	var set bool
 	for i := 0; i <= (lrusizelimit + 1); i++ {
 		set, _ = SetCache(lru, []byte{'i'})
@@ -75,11 +80,10 @@ func TestSetUntilFullCausesLruDemotion(t *testing.T) {
 // GET
 func TestGet(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	buf := []byte{'7', '8', '3', '7'}
 	SetCache(lru, buf)
 	get, _ := GetCache(lru, 1)
-	fmt.Println(get)
-	fmt.Println(buf)
 	if get == nil {
 		t.Errorf("Expected set data to be same as get data %d != %d", get, buf)
 	}
@@ -87,6 +91,7 @@ func TestGet(t *testing.T) {
 
 func TestGetEmpty(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	_, err := GetCache(lru, 1)
 	if err == nil {
 		t.Errorf("Expected emtpy entry error %d", err)
@@ -95,6 +100,7 @@ func TestGetEmpty(t *testing.T) {
 
 func TestGetNonExisting(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	SetCache(lru, []byte("1"))
 	_, err := GetCache(lru, 2)
 	if err == nil {
@@ -104,6 +110,7 @@ func TestGetNonExisting(t *testing.T) {
 
 func TestGetOufofBounds(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	_, err := GetCache(lru, 11)
 	if err == nil {
 		t.Errorf("Expected Out of  %d", err)
@@ -114,6 +121,7 @@ func TestGetOufofBounds(t *testing.T) {
 // and check if it's in the front of the list
 func TestGetPromotion(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	for i := 0; i <= (lrusizelimit - 6); i++ {
 		SetCache(lru, []byte{'i'})
 	}
@@ -129,9 +137,9 @@ func TestGetPromotion(t *testing.T) {
 func TestRm(t *testing.T) {
 	//defer CleanTmpfs()
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	SetCache(lru, []byte("deleteme"))
 	filename := fmt.Sprintf("%d", lru.l.Front().Value)
-	fmt.Printf(filename)
 	deleted, err := RmCache(lru, 1)
 	if err != nil {
 		t.Errorf("Expected No Error on Delete: %d", err)
@@ -146,6 +154,7 @@ func TestRm(t *testing.T) {
 
 func TestRmEmpty(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	rm, err := RmCache(lru, 1)
 	if rm != true {
 		t.Errorf("Expected Deletion on empty LRU: %d", rm)
@@ -157,6 +166,7 @@ func TestRmEmpty(t *testing.T) {
 
 func TestRmNonExisting(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	SetCache(lru, []byte("1"))
 	rm, err := RmCache(lru, 2)
 	if rm != true {
@@ -171,6 +181,7 @@ func TestRmNonExisting(t *testing.T) {
 func TestRmCausesPreviousPromotion(t *testing.T) {
 	//defer CleanTmpfs()
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	for i := 0; i <= (lrusizelimit - 6); i++ {
 		SetCache(lru, []byte{'i'})
 	}
@@ -184,6 +195,7 @@ func TestRmCausesPreviousPromotion(t *testing.T) {
 
 func TestRmOutOfBounds(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	_, err := RmCache(lru, lrusizelimit+1)
 	if err == nil {
 		t.Errorf("Expected Ouf of bounds error")
@@ -192,6 +204,7 @@ func TestRmOutOfBounds(t *testing.T) {
 
 func TestCount(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	SetCache(lru, []byte("1"))
 	count := EntryCount(lru)
 	if count >= 0 {
@@ -202,16 +215,19 @@ func TestCount(t *testing.T) {
 
 func TestCountEmpty(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	count := EntryCount(lru)
-	if count >= 0 {
-	} else {
+	if count != 0 {
 		t.Errorf("Expected count to be >= 0 %d", count)
 	}
+
 }
 
 func TestReset(t *testing.T) {
 	//reset, err := ResetCache(lru)
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
+	SetCache(lru, []byte("1"))
 	reset, err := ResetCache(lru)
 	if reset != true {
 		t.Errorf("Expected ResetCache to return true %d", reset)
@@ -219,11 +235,29 @@ func TestReset(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected ResetCache to run with no error %d", err)
 	}
+	dir, err := ioutil.ReadDir("/tmp/lru")
+	if err != nil {
+		t.Errorf("Expected %s to be readable: %d", lrudir, err)
+	}
+	dirlen := len(dir)
+	if dirlen >= 0 {
+	} else {
+		t.Errorf("Expected >= 0 files in %s:  %d", lrudir, dirlen)
+	}
 }
 
 func TestResetEmpty(t *testing.T) {
 	lru := initcache(lrusizelimit)
+	defer CleanTmpfs()
 	ResetCache(lru)
+	dir, err := ioutil.ReadDir("/tmp/lru")
+	if err != nil {
+		t.Errorf("Expected %s to be readable: %d", lrudir, err)
+	}
+	dirlen := len(dir)
+	if dirlen != 0 {
+		t.Errorf("Expected zero files in %s:  %d", lrudir, dirlen)
+	}
 }
 
 func CleanTmpfs() {
