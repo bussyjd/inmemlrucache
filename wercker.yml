@@ -1,7 +1,6 @@
-box: google/golang
+box: golang
 build:
     steps:
-
     # Test the project
     - script:
         name: go test
