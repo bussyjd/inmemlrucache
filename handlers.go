@@ -63,5 +63,6 @@ func ResetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CountHandler(w http.ResponseWriter, r *http.Request) {
-	EntryCount(lru)
+	i := EntryCount(lru)
+	fmt.Fprintf(w, "%s", i)
 }

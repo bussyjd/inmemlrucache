@@ -31,18 +31,19 @@ HTTP 200 on success
 
 ###  /DEL/{id}
 Deletes the key {id} out of the cache and promote the olders entries
-HTTP 204 on success
-HTTP 404 if the entry was empty beforehand
+
+returns HTTP 204 on success
+returns HTTP 404 if the entry was empty beforehand
 
 ### /RESET
 Completely clears the cache in a irreversible manner.
 
-HTTP 204 on success
+returns HTTP 204 on success
 
 ### /COUNT
 Returns the number of entries stored in the cache.
 
-HTTP 200 on success
+returns HTTP 200 on success
 
 ## How to run
 
