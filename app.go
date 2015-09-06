@@ -132,7 +132,6 @@ func RmCache(lru *LRUCache, key string) (bool, error) {
 	}
 	filename := lru.RmLru(key)
 	if filename == false {
-		fmt.Println(filename)
 		return filename, fmt.Errorf("LRU entry non existing\n")
 	}
 	rm, err := TmpfsRm(key)

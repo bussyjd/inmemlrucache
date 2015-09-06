@@ -24,7 +24,6 @@ func TestSet(t *testing.T) {
 	lru := initcache(lrusizelimit)
 	defer CleanTmpfs()
 	buf := []byte{'i', 'm', 'a', 'g', 'e'}
-	fmt.Println(len(buf))
 	id, err := SetCache(lru, buf)
 	if !(len(id) > 0) {
 		t.Errorf("Expected an Id of the data entry: %d", id)
