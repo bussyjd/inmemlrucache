@@ -1,6 +1,11 @@
 box: wercker/golang
 build:
     steps:
+    # Vendor the project
+    - script:
+        name: go get
+        code: go get ./...
+
     # Test the project
     - script:
         name: go test
