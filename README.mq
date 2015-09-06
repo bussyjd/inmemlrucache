@@ -52,7 +52,8 @@ docker run --rm -v $PWD:/app -w /app treeder/go remote https://github.com/bussyj
 ```
 ### Local env
 ```
-go run app.go tmpfs.go handlers.go
+go build
+./inmemlrucache
 ```
 ### Development testing
 ```

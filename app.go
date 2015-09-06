@@ -67,7 +67,7 @@ func SetCache(lru *LRUCache, buf []byte) (bool, error) {
 	if len(buf) == 0 {
 		return false, fmt.Errorf("Image size is empty")
 	}
-	newfilename := randStr(lrusizelimit) + ".jpg"
+	newfilename := randStr(lrusizelimit)
 	lrulen := lru.l.Len()
 	switch {
 	case lrulen == lru.size:
