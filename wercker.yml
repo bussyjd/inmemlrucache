@@ -1,20 +1,21 @@
 box: wercker/golang
 build:
     steps:
-    # Vendor the project
+    - setup-go-workspace
+
+    - wercker/golint
+
+    # Build the project
     - script:
-        name: go get
-        code: echo $GOPATH && pwd && go get .
+        name: go build
+        code: |
+          go build ./...
 
     # Test the project
     - script:
         name: go test
-        code: go test ./...
-
-    # Statically build the project
-    - script:
-        name: go build
-        code: CGO_ENABLED=0 go build -a -ldflags '-s' -installsuffix cgo -o app .
+        code: |
+          go test ./...
 
     # Create inmemlrucache-controller.json only for initialization
     - script:
