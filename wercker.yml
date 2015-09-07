@@ -4,7 +4,7 @@ build:
     # Vendor the project
     - script:
         name: go get
-        code: go get ./...
+        code: echo $GOPATH && pwd && go get .
 
     # Test the project
     - script:
